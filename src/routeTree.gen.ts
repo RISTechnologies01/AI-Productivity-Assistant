@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EmailStudioRouteImport } from './routes/email-studio'
+import { Route as MeetingIntelligenceRouteImport } from './routes/meeting-intelligence'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const EmailStudioRoute = EmailStudioRouteImport.update({
   path: '/email-studio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MeetingIntelligenceRoute = MeetingIntelligenceRouteImport.update({
+  id: '/meeting-intelligence',
+  path: '/meeting-intelligence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/email-studio': typeof EmailStudioRoute
+  '/meeting-intelligence': typeof MeetingIntelligenceRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/email-studio': typeof EmailStudioRoute
+  '/meeting-intelligence': typeof MeetingIntelligenceRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/email-studio': typeof EmailStudioRoute
+  '/meeting-intelligence': typeof MeetingIntelligenceRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/email-studio'
+  fullPaths: '/' | '/email-studio' | '/meeting-intelligence'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/email-studio'
-  id: '__root__' | '/' | '/email-studio'
+  to: '/' | '/email-studio' | '/meeting-intelligence'
+  id: '__root__' | '/' | '/email-studio' | '/meeting-intelligence'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   EmailStudioRoute: typeof EmailStudioRoute
+  MeetingIntelligenceRoute: typeof MeetingIntelligenceRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EmailStudioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/meeting-intelligence': {
+      id: '/meeting-intelligence'
+      path: '/meeting-intelligence'
+      fullPath: '/meeting-intelligence'
+      preLoaderRoute: typeof MeetingIntelligenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EmailStudioRoute: EmailStudioRoute,
+  MeetingIntelligenceRoute: MeetingIntelligenceRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
