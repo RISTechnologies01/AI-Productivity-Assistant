@@ -16,7 +16,7 @@ import {
 import { generateEmail } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/email-studio")({
-  validateSearch: (s: Record<string, unknown>) => ({ q: typeof s.q === "string" ? s.q : undefined }),
+  validateSearch: (s: Record<string, unknown>) => ({ q: typeof s["q"] === "string" ? (s["q"] as string) : undefined }),
   head: () => ({
     meta: [
       { title: "Email Studio — Capable" },
