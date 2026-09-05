@@ -1,7 +1,8 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Loader2, LogOut, Menu, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { useAuth } from "@/hooks/use-auth";
 import { navGroups } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
