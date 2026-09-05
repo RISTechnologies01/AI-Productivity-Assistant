@@ -3,6 +3,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { NotebookPen, RefreshCw, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { useState } from "react";
 
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+
 import {
   BulletList,
   CopyButton,
@@ -71,6 +74,7 @@ function toPlainText(r: MeetingResult) {
 
 function MeetingIntelligence() {
   const run = useServerFn(summarizeMeeting);
+  const { user } = useAuth();
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +91,9 @@ function MeetingIntelligence() {
     try {
       const out = await run({ data: { notes: notes.trim() } });
       setResult(out);
+      if (user) {
+        await supabase.from("meetings").insert({ user_id: user.id, notes: notes.trim(), result: out as never });
+      }
       setEditable(toPlainText(out));
       setEditing(false);
     } catch (err) {
