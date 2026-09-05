@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CapableAiRouteImport } from './routes/capable-ai'
 import { Route as EmailStudioRouteImport } from './routes/email-studio'
 import { Route as HelpRouteImport } from './routes/help'
@@ -21,6 +22,11 @@ import { Route as TaskPlannerRouteImport } from './routes/task-planner'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CapableAiRoute = CapableAiRouteImport.update({
@@ -61,6 +67,7 @@ const TaskPlannerRoute = TaskPlannerRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/capable-ai': typeof CapableAiRoute
   '/email-studio': typeof EmailStudioRoute
   '/help': typeof HelpRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/capable-ai': typeof CapableAiRoute
   '/email-studio': typeof EmailStudioRoute
   '/help': typeof HelpRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/capable-ai': typeof CapableAiRoute
   '/email-studio': typeof EmailStudioRoute
   '/help': typeof HelpRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/capable-ai'
     | '/email-studio'
     | '/help'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/capable-ai'
     | '/email-studio'
     | '/help'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/capable-ai'
     | '/email-studio'
     | '/help'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   CapableAiRoute: typeof CapableAiRoute
   EmailStudioRoute: typeof EmailStudioRoute
   HelpRoute: typeof HelpRoute
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/capable-ai': {
@@ -197,6 +217,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   CapableAiRoute: CapableAiRoute,
   EmailStudioRoute: EmailStudioRoute,
   HelpRoute: HelpRoute,
