@@ -63,8 +63,32 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function SidebarFooter() {
+  const { user, profile, signOut } = useAuth();
+
   return (
     <div className="border-t border-sidebar-border px-5 py-4">
+      {user && (
+        <div className="mb-3 flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-bold text-sidebar-foreground">
+            {(profile?.display_name || user.email || "?").charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-sidebar-foreground">
+              {profile?.display_name || user.email}
+            </p>
+            <p className="truncate text-[11px] text-ink-muted">{user.email}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            aria-label="Sign out"
+            title="Sign out"
+            className="flex size-9 items-center justify-center rounded-lg text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:outline-2 focus-visible:outline-sidebar-ring"
+          >
+            <LogOut className="size-4" aria-hidden />
+          </button>
+        </div>
+      )}
       <p className="text-[11px] leading-relaxed text-ink-muted">
         AI can make mistakes. Review important content before you send or submit it.
       </p>
@@ -75,10 +99,34 @@ function SidebarFooter() {
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (!loading && !user && pathname !== "/auth") {
+      void navigate({ to: "/auth" });
+    }
+  }, [loading, user, pathname, navigate]);
+
+  if (pathname === "/auth") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+        <div className="w-full">{children}</div>
+      </div>
+    );
+  }
+
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-6 animate-spin text-primary" aria-label="Loading" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
