@@ -3,6 +3,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { BookOpen, RefreshCw, ShieldAlert, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+
 import {
   BulletList,
   CopyButton,
@@ -73,6 +76,7 @@ function toText(r: ResearchResult, topic: string) {
 
 function ResearchAssistant() {
   const { q } = Route.useSearch();
+  const { user } = useAuth();
   const run = useServerFn(runResearch);
 
   const [topic, setTopic] = useState(q && !q.toLowerCase().startsWith("explain this topic") ? (q ?? "") : "");
@@ -91,6 +95,15 @@ function ResearchAssistant() {
     try {
       const out = await run({ data: { topic: topic.trim(), goal, material: material.trim() } });
       setResult(out);
+      if (user) {
+        await supabase.from("research_entries").insert({
+          user_id: user.id,
+          topic: topic.trim(),
+          goal,
+          source: material.trim(),
+          result: out as never,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete this research. Please try again.");
     } finally {

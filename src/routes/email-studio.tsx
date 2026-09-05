@@ -3,6 +3,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { Mail, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+
 import {
   CopyButton,
   EmptyState,
@@ -38,6 +41,7 @@ const lengths = ["Short", "Medium", "Detailed"] as const;
 
 function EmailStudio() {
   const { q } = Route.useSearch();
+  const { user } = useAuth();
   const run = useServerFn(generateEmail);
 
   const [context, setContext] = useState("");
@@ -62,6 +66,17 @@ function EmailStudio() {
       setSubject(out.subject);
       setBody(out.body);
       setHasResult(true);
+      if (user) {
+        await supabase.from("emails").insert({
+          user_id: user.id,
+          context: context.trim(),
+          intent: intent.trim(),
+          tone,
+          length,
+          subject: out.subject,
+          body: out.body,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not generate the email. Please try again.");
     } finally {
