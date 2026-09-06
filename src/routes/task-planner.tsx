@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Circle, ListChecks, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   BulletList,
@@ -77,6 +77,7 @@ function TaskPlanner() {
   const [error, setError] = useState<string | null>(null);
   const [plan, setPlan] = useState<PlanResult | null>(null);
   const [doneBlocks, setDoneBlocks] = useState<Record<number, boolean>>({});
+  const savingIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -120,6 +121,7 @@ function TaskPlanner() {
 
   const persist = async (row: TaskRow) => {
     if (!user || !row.name.trim()) return;
+    if (!row.dbId && savingIds.current.has(row.id)) return;
     const payload = {
       user_id: user.id,
       title: row.name.trim(),
@@ -131,7 +133,9 @@ function TaskPlanner() {
     if (row.dbId) {
       await supabase.from("tasks").update(payload).eq("id", row.dbId);
     } else {
+      savingIds.current.add(row.id);
       const { data } = await supabase.from("tasks").insert(payload).select("id").maybeSingle();
+      savingIds.current.delete(row.id);
       if (data?.id) setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, dbId: data.id } : r)));
     }
   };
