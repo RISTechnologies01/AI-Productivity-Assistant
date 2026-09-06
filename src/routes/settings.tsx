@@ -3,6 +3,8 @@ import { Settings as SettingsIcon, ShieldAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Field, PageHeader, Panel } from "@/components/ai-ui";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -30,11 +32,36 @@ const inputClass =
   "w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 function SettingsPage() {
-  const [name, setName] = useState("Thabo");
+  const { user, profile, refreshProfile } = useAuth();
+  const [name, setName] = useState("");
   const [theme, setTheme] = useState<(typeof themes)[number]>("System");
   const [length, setLength] = useState<(typeof lengths)[number]>("Balanced");
   const [tone, setTone] = useState<(typeof tones)[number]>("Professional");
   const [saved, setSaved] = useState(false);
+  const [savingError, setSavingError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!profile) return;
+    setName(profile.display_name);
+    setTheme(profile.theme as (typeof themes)[number]);
+    setLength(profile.response_length as (typeof lengths)[number]);
+    setTone(profile.tone as (typeof tones)[number]);
+  }, [profile]);
+
+  const save = async () => {
+    if (!user) return;
+    setSavingError(null);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ display_name: name.trim(), theme, response_length: length, tone })
+      .eq("id", user.id);
+    if (error) {
+      setSavingError("Could not save your preferences. Please try again.");
+      return;
+    }
+    await refreshProfile();
+    setSaved(true);
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -110,14 +137,19 @@ function SettingsPage() {
           <div className="mt-5 flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setSaved(true)}
+              onClick={() => void save()}
               className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             >
               Save preferences
             </button>
+            {savingError && (
+              <span className="text-xs font-semibold text-destructive" role="alert">
+                {savingError}
+              </span>
+            )}
             {saved && (
               <span className="rounded-full bg-success-soft px-3 py-1 text-xs font-semibold text-success" role="status">
-                Preferences saved for this session
+                Preferences saved
               </span>
             )}
           </div>

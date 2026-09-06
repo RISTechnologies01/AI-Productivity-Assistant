@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { ErrorState, LoadingState, PageHeader, ReviewNotice } from "@/components/ai-ui";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { chatWithCapable } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/capable-ai")({
@@ -42,11 +44,28 @@ const suggestions = [
 function CapableAI() {
   const { q } = Route.useSearch();
   const chat = useServerFn(chatWithCapable);
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState(q ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void (async () => {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true });
+      if (active && data) setMessages(data as Msg[]);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -63,6 +82,12 @@ function CapableAI() {
     try {
       const res = await chat({ data: { messages: next } });
       setMessages([...next, { role: "assistant", content: res.reply }]);
+      if (user) {
+        await supabase.from("chat_messages").insert([
+          { user_id: user.id, role: "user", content: value },
+          { user_id: user.id, role: "assistant", content: res.reply },
+        ]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -163,6 +188,7 @@ function CapableAI() {
                 onClick={() => {
                   setMessages([]);
                   setError(null);
+                  if (user) void supabase.from("chat_messages").delete().eq("user_id", user.id);
                 }}
                 disabled={messages.length === 0 || loading}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
