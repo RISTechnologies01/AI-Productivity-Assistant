@@ -43,7 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    return () => sub.subscription.unsubscribe();
+    // Safety net: never leave the app stuck on a loading spinner.
+    const timer = setTimeout(() => setLoading(false), 2500);
+    return () => {
+      clearTimeout(timer);
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   const userId = session?.user?.id ?? null;
