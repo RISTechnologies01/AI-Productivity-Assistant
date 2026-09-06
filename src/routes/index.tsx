@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowRight, CheckCircle2, Mail, NotebookPen, Send, Sparkles, TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { DemoBadge } from "@/components/ai-ui";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { toolItems } from "@/lib/nav";
 
 export const Route = createFileRoute("/")({
@@ -35,10 +36,10 @@ const examplePrompts = [
   "Help me prepare for an interview.",
 ];
 
-const stats = [
-  { label: "Tasks completed", value: "18", delta: "+5 this week", icon: CheckCircle2, tone: "success" as const },
-  { label: "Emails generated", value: "12", delta: "+3 this week", icon: Mail, tone: "primary" as const },
-  { label: "Meetings summarized", value: "7", delta: "+2 this week", icon: NotebookPen, tone: "ink" as const },
+const statMeta = [
+  { key: "tasks" as const, label: "Tasks completed", icon: CheckCircle2, tone: "success" as const },
+  { key: "emails" as const, label: "Emails generated", icon: Mail, tone: "primary" as const },
+  { key: "meetings" as const, label: "Meetings summarized", icon: NotebookPen, tone: "ink" as const },
 ];
 
 function routeForPrompt(prompt: string) {
@@ -52,7 +53,27 @@ function routeForPrompt(prompt: string) {
 
 function Dashboard() {
   const navigate = useNavigate();
+  const { user, profile } = useAuth();
   const [prompt, setPrompt] = useState("");
+  const [counts, setCounts] = useState({ tasks: 0, emails: 0, meetings: 0 });
+
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void (async () => {
+      const [tasks, emails, meetings] = await Promise.all([
+        supabase.from("tasks").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("done", true),
+        supabase.from("emails").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("meetings").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      ]);
+      if (!active) return;
+      setCounts({ tasks: tasks.count ?? 0, emails: emails.count ?? 0, meetings: meetings.count ?? 0 });
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
   const greeting = (() => {
     const h = new Date().getHours();
     if (h < 12) return "Good morning";
@@ -68,7 +89,7 @@ function Dashboard() {
   return (
     <div className="space-y-10">
       <section>
-        <h1 className="text-3xl font-bold text-foreground sm:text-4xl">{greeting}, Thabo 👋</h1>
+        <h1 className="text-3xl font-bold text-foreground sm:text-4xl">{greeting}, {profile?.display_name || user?.email?.split("@")[0] || "there"} 👋</h1>
         <p className="mt-2 text-base text-muted-foreground">What would you like to accomplish today?</p>
 
         <form
@@ -150,14 +171,12 @@ function Dashboard() {
           <h2 id="overview-heading" className="font-display text-xl font-bold text-foreground">
             Productivity overview
           </h2>
-          <DemoBadge />
         </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Example figures shown so you can see how your activity will appear.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">Your activity, saved to your account.</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          {stats.map((stat) => {
+          {statMeta.map((stat) => {
             const Icon = stat.icon;
+            const value = counts[stat.key];
             return (
               <div key={stat.label} className="card-surface p-5">
                 <div className="flex items-center justify-between">
@@ -174,10 +193,10 @@ function Dashboard() {
                   </span>
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-success">
                     <TrendingUp className="size-3.5" aria-hidden />
-                    {stat.delta}
+                    All time
                   </span>
                 </div>
-                <p className="mt-4 font-display text-3xl font-bold text-foreground">{stat.value}</p>
+                <p className="mt-4 font-display text-3xl font-bold text-foreground">{value}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
               </div>
             );
