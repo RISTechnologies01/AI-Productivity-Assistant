@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Circle, ListChecks, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   BulletList,
@@ -15,6 +15,8 @@ import {
   Panel,
   ReviewNotice,
 } from "@/components/ai-ui";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { buildPlan, type PlanResult } from "@/lib/ai.functions";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +40,7 @@ export const Route = createFileRoute("/task-planner")({
 
 type TaskRow = {
   id: string;
+  dbId?: string;
   name: string;
   deadline: string;
   duration: string;
@@ -66,6 +69,7 @@ function priorityClass(p: string) {
 function TaskPlanner() {
   const { q } = Route.useSearch();
   const run = useServerFn(buildPlan);
+  const { user } = useAuth();
 
   const [rows, setRows] = useState<TaskRow[]>([newRow()]);
   const [brainDump, setBrainDump] = useState(q && !q.toLowerCase().startsWith("help me plan") ? q : "");
@@ -74,11 +78,78 @@ function TaskPlanner() {
   const [plan, setPlan] = useState<PlanResult | null>(null);
   const [doneBlocks, setDoneBlocks] = useState<Record<number, boolean>>({});
 
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    void (async () => {
+      const [tasksRes, planRes] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id, title, deadline, duration, priority, done")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("plans")
+          .select("result")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      if (!active) return;
+      if (tasksRes.data && tasksRes.data.length) {
+        setRows(
+          tasksRes.data.map((t) => ({
+            id: t.id,
+            dbId: t.id,
+            name: t.title,
+            deadline: t.deadline,
+            duration: t.duration,
+            priority: t.priority,
+            done: t.done,
+          })),
+        );
+      }
+      const stored = planRes.data?.result as PlanResult | undefined;
+      if (stored && Array.isArray(stored.blocks)) setPlan(stored);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const persist = async (row: TaskRow) => {
+    if (!user || !row.name.trim()) return;
+    const payload = {
+      user_id: user.id,
+      title: row.name.trim(),
+      deadline: row.deadline,
+      duration: row.duration,
+      priority: row.priority || "Medium",
+      done: row.done,
+    };
+    if (row.dbId) {
+      await supabase.from("tasks").update(payload).eq("id", row.dbId);
+    } else {
+      const { data } = await supabase.from("tasks").insert(payload).select("id").maybeSingle();
+      if (data?.id) setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, dbId: data.id } : r)));
+    }
+  };
+
   const filled = rows.filter((r) => r.name.trim());
   const valid = filled.length > 0 || brainDump.trim().length >= 10;
 
   const update = (id: string, patch: Partial<TaskRow>) =>
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+
+  const updateAndSave = (id: string, patch: Partial<TaskRow>) => {
+    setRows((prev) => {
+      const next = prev.map((r) => (r.id === id ? { ...r, ...patch } : r));
+      const row = next.find((r) => r.id === id);
+      if (row) void persist(row);
+      return next;
+    });
+  };
 
   const generate = async () => {
     if (!valid || loading) return;
@@ -98,6 +169,9 @@ function TaskPlanner() {
       });
       setPlan(out);
       setDoneBlocks({});
+      if (user) {
+        await supabase.from("plans").insert({ user_id: user.id, result: out as never });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not build your plan. Please try again.");
     } finally {
@@ -134,7 +208,7 @@ function TaskPlanner() {
                     <button
                       type="button"
                       aria-label={row.done ? `Mark ${row.name || "task"} incomplete` : `Mark ${row.name || "task"} complete`}
-                      onClick={() => update(row.id, { done: !row.done })}
+                      onClick={() => updateAndSave(row.id, { done: !row.done })}
                       className="mt-2.5 shrink-0 text-muted-foreground transition-colors hover:text-success"
                     >
                       {row.done ? (
@@ -148,6 +222,7 @@ function TaskPlanner() {
                         aria-label={`Task ${i + 1} name`}
                         value={row.name}
                         onChange={(e) => update(row.id, { name: e.target.value })}
+                        onBlur={() => updateAndSave(row.id, {})}
                         placeholder="Task name"
                         className={cn(
                           "w-full rounded-lg border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary",
@@ -159,6 +234,7 @@ function TaskPlanner() {
                           aria-label={`Task ${i + 1} deadline`}
                           value={row.deadline}
                           onChange={(e) => update(row.id, { deadline: e.target.value })}
+                          onBlur={() => updateAndSave(row.id, {})}
                           placeholder="Deadline"
                           className="rounded-lg border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
                         />
@@ -166,13 +242,14 @@ function TaskPlanner() {
                           aria-label={`Task ${i + 1} estimated duration`}
                           value={row.duration}
                           onChange={(e) => update(row.id, { duration: e.target.value })}
+                          onBlur={() => updateAndSave(row.id, {})}
                           placeholder="Est. duration"
                           className="rounded-lg border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
                         />
                         <select
                           aria-label={`Task ${i + 1} priority`}
                           value={row.priority}
-                          onChange={(e) => update(row.id, { priority: e.target.value })}
+                          onChange={(e) => updateAndSave(row.id, { priority: e.target.value })}
                           className="rounded-lg border border-input bg-card px-3 py-2 text-sm outline-none focus:border-primary"
                         >
                           {priorities.map((p) => (
@@ -186,7 +263,10 @@ function TaskPlanner() {
                     <button
                       type="button"
                       aria-label={`Delete task ${i + 1}`}
-                      onClick={() => setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== row.id) : [newRow()]))}
+                      onClick={() => {
+                        if (row.dbId) void supabase.from("tasks").delete().eq("id", row.dbId);
+                        setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== row.id) : [newRow()]));
+                      }}
                       className="mt-2 shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                     >
                       <Trash2 className="size-4" aria-hidden />
